@@ -3,7 +3,6 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
-from django.db.models import Q
 from .models import DoctorProfile, PatientProfile, Appointment, MedicalRecord, Prescription
 from .serializers import (
     UserSerializer, RegisterSerializer, DoctorProfileSerializer,
@@ -40,9 +39,14 @@ class MeView(generics.RetrieveAPIView):
         data = UserSerializer(user).data
         data['role'] = role
         if role == 'doctor' and hasattr(user, 'doctor_profile'):
-            data['profile'] = DoctorProfileSerializer(user.doctor_profile).data
+            profile = user.doctor_profile
+            data['profile'] = DoctorProfileSerializer(profile).data
+            data['is_approved'] = profile.is_approved
         elif role == 'patient' and hasattr(user, 'patient_profile'):
             data['profile'] = PatientProfileSerializer(user.patient_profile).data
+            data['is_approved'] = True
+        else:
+            data['is_approved'] = True
         return Response(data)
 
 
@@ -53,7 +57,7 @@ class DoctorViewSet(viewsets.ReadOnlyModelViewSet):
     search_fields = ['user__first_name', 'user__last_name', 'specialization']
 
     def get_queryset(self):
-        return DoctorProfile.objects.select_related('user').all()
+        return DoctorProfile.objects.filter(is_approved=True).select_related('user').all()
 
     @action(detail=False, methods=['get'])
     def me(self, request):
@@ -62,12 +66,6 @@ class DoctorViewSet(viewsets.ReadOnlyModelViewSet):
             return Response(DoctorProfileSerializer(profile).data)
         except DoctorProfile.DoesNotExist:
             return Response({'error': 'Not a doctor'}, status=400)
-
-    @action(detail=True, methods=['get'])
-    def appointments(self, request, pk=None):
-        doctor = self.get_object()
-        appointments = doctor.appointments.all()
-        return Response(AppointmentSerializer(appointments, many=True).data)
 
 
 class PatientViewSet(viewsets.ReadOnlyModelViewSet):
@@ -97,8 +95,6 @@ class PatientViewSet(viewsets.ReadOnlyModelViewSet):
 class AppointmentViewSet(viewsets.ModelViewSet):
     serializer_class = AppointmentSerializer
     permission_classes = [permissions.IsAuthenticated]
-    filter_backends = [filters.SearchFilter]
-    search_fields = ['reason', 'status']
 
     def get_queryset(self):
         user = self.request.user
@@ -113,9 +109,6 @@ class AppointmentViewSet(viewsets.ModelViewSet):
             return Appointment.objects.filter(patient=user.patient_profile).select_related('doctor__user', 'patient__user')
         except:
             return Appointment.objects.none()
-
-    def perform_create(self, serializer):
-        serializer.save()
 
     @action(detail=True, methods=['patch'])
     def update_status(self, request, pk=None):
@@ -180,6 +173,43 @@ class PrescriptionViewSet(viewsets.ModelViewSet):
             return Prescription.objects.none()
 
 
+class DoctorApprovalViewSet(viewsets.ViewSet):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def list(self, request):
+        if not request.user.is_superuser:
+            return Response({'error': 'Admin only'}, status=403)
+        pending = DoctorProfile.objects.filter(is_approved=False).select_related('user')
+        approved = DoctorProfile.objects.filter(is_approved=True).select_related('user')
+        return Response({
+            'pending': DoctorProfileSerializer(pending, many=True).data,
+            'approved': DoctorProfileSerializer(approved, many=True).data,
+        })
+
+    @action(detail=True, methods=['patch'])
+    def approve(self, request, pk=None):
+        if not request.user.is_superuser:
+            return Response({'error': 'Admin only'}, status=403)
+        try:
+            doctor = DoctorProfile.objects.get(pk=pk)
+            doctor.is_approved = True
+            doctor.save()
+            return Response({'message': f'Dr. {doctor.user.get_full_name()} approved!'})
+        except DoctorProfile.DoesNotExist:
+            return Response({'error': 'Doctor not found'}, status=404)
+
+    @action(detail=True, methods=['patch'])
+    def reject(self, request, pk=None):
+        if not request.user.is_superuser:
+            return Response({'error': 'Admin only'}, status=403)
+        try:
+            doctor = DoctorProfile.objects.get(pk=pk)
+            doctor.user.delete()
+            return Response({'message': 'Doctor account removed.'})
+        except DoctorProfile.DoesNotExist:
+            return Response({'error': 'Doctor not found'}, status=404)
+
+
 class StatsView(generics.GenericAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
@@ -190,7 +220,8 @@ class StatsView(generics.GenericAPIView):
 
         if user.is_superuser:
             return Response({
-                'total_doctors': DoctorProfile.objects.count(),
+                'total_doctors': DoctorProfile.objects.filter(is_approved=True).count(),
+                'pending_doctors': DoctorProfile.objects.filter(is_approved=False).count(),
                 'total_patients': PatientProfile.objects.count(),
                 'total_appointments': Appointment.objects.count(),
                 'today_appointments': Appointment.objects.filter(date=today).count(),

@@ -23,6 +23,7 @@ class DoctorProfile(models.Model):
     years_experience = models.IntegerField(default=0)
     consultation_fee = models.DecimalField(max_digits=10, decimal_places=2, default=0)
     available_days = models.CharField(max_length=100, default='Mon,Tue,Wed,Thu,Fri')
+    is_approved = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

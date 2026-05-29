@@ -3,7 +3,8 @@ from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from .views import (
     RegisterView, MeView, DoctorViewSet, PatientViewSet,
-    AppointmentViewSet, MedicalRecordViewSet, PrescriptionViewSet, StatsView
+    AppointmentViewSet, MedicalRecordViewSet, PrescriptionViewSet,
+    DoctorApprovalViewSet, StatsView
 )
 
 router = DefaultRouter()
@@ -12,6 +13,7 @@ router.register(r'patients', PatientViewSet, basename='patient')
 router.register(r'appointments', AppointmentViewSet, basename='appointment')
 router.register(r'records', MedicalRecordViewSet, basename='record')
 router.register(r'prescriptions', PrescriptionViewSet, basename='prescription')
+router.register(r'doctor-approvals', DoctorApprovalViewSet, basename='doctor-approval')
 
 urlpatterns = [
     path('auth/register/', RegisterView.as_view(), name='register'),

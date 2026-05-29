@@ -29,9 +29,15 @@ for username, first, last, spec, phone, bio, exp, fee in doctors_data:
     if created:
         user.set_password('doctor123')
         user.save()
-    profile, _ = DoctorProfile.objects.get_or_create(user=user, defaults={'specialization': spec, 'phone': phone, 'bio': bio, 'years_experience': exp, 'consultation_fee': fee})
+    profile, _ = DoctorProfile.objects.get_or_create(user=user, defaults={
+        'specialization': spec, 'phone': phone, 'bio': bio,
+        'years_experience': exp, 'consultation_fee': fee, 'is_approved': True
+    })
+    if not profile.is_approved:
+        profile.is_approved = True
+        profile.save()
     doctor_profiles.append(profile)
-    print(f'✅ Doctor: Dr. {first} {last} ({spec})')
+    print(f'✅ Doctor: Dr. {first} {last} ({spec}) — approved')
 
 # Patients
 patients_data = [
@@ -47,7 +53,10 @@ for username, first, last, dob, phone, blood, allergies in patients_data:
     if created:
         user.set_password('patient123')
         user.save()
-    profile, _ = PatientProfile.objects.get_or_create(user=user, defaults={'date_of_birth': date.fromisoformat(dob), 'phone': phone, 'blood_group': blood, 'allergies': allergies})
+    profile, _ = PatientProfile.objects.get_or_create(user=user, defaults={
+        'date_of_birth': date.fromisoformat(dob), 'phone': phone,
+        'blood_group': blood, 'allergies': allergies
+    })
     patient_profiles.append(profile)
     print(f'✅ Patient: {first} {last}')
 
@@ -74,8 +83,8 @@ print(f'✅ {len(appointments_data)} appointments created')
 
 # Medical Records
 records_data = [
-    (doctor_profiles[0], patient_profiles[2], appointment_objects[4], today - timedelta(days=3), 'Hypertension Stage 2', 'Severe headaches, dizziness, high blood pressure readings', 'Prescribed antihypertensive medication, lifestyle changes recommended', today - timedelta(days=3) + timedelta(days=30)),
-    (doctor_profiles[1], patient_profiles[0], appointment_objects[5], today - timedelta(days=7), 'Healthy - Annual Checkup', 'No significant symptoms', 'Continue current lifestyle, exercise regularly', today - timedelta(days=7) + timedelta(days=365)),
+    (doctor_profiles[0], patient_profiles[2], appointment_objects[4], today - timedelta(days=3), 'Hypertension Stage 2', 'Severe headaches, dizziness, high blood pressure readings', 'Prescribed antihypertensive medication, lifestyle changes recommended', today + timedelta(days=27)),
+    (doctor_profiles[1], patient_profiles[0], appointment_objects[5], today - timedelta(days=7), 'Healthy - Annual Checkup', 'No significant symptoms', 'Continue current lifestyle, exercise regularly', today + timedelta(days=358)),
 ]
 
 record_objects = []
@@ -105,9 +114,9 @@ print(f'✅ {len(prescriptions_data)} prescriptions created')
 
 print('\n🎉 MedBook seeded successfully!')
 print('\n📋 Login Credentials:')
-print('   Admin:   username=admin     / password=admin123')
-print('   Doctor:  username=dr.james  / password=doctor123')
-print('   Doctor:  username=dr.sarah  / password=doctor123')
-print('   Doctor:  username=dr.michael/ password=doctor123')
-print('   Patient: username=john.doe  / password=patient123')
-print('   Patient: username=mary.jane / password=patient123')
+print('   Admin:    username=admin      / password=admin123')
+print('   Doctor:   username=dr.james   / password=doctor123')
+print('   Doctor:   username=dr.sarah   / password=doctor123')
+print('   Doctor:   username=dr.michael / password=doctor123')
+print('   Patient:  username=john.doe   / password=patient123')
+print('   Patient:  username=mary.jane  / password=patient123')
