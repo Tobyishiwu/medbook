@@ -388,15 +388,15 @@ function PatientDashboard({ user }) {
   }, []);
 
   const bookAppointment = async (e) => {
-    e.preventDefault();
-    try {
-      const patientId = user?.profile?.id;
-      const appt = await apptApi.create({ ...newAppt, patient: patientId });
-      setAppts([appt, ...appts]);
-      setShowBook(false);
-      setNewAppt({ doctor: '', date: '', time: '09:00', reason: '' });
-    } catch (err) { setError(err.message); }
-  };
+  e.preventDefault();
+  try {
+    const patientMe = await patientsApi.me();
+    const appt = await apptApi.create({ ...newAppt, patient: patientMe.id });
+    setAppts([appt, ...appts]);
+    setShowBook(false);
+    setNewAppt({ doctor: '', date: '', time: '09:00', reason: '' });
+  } catch (err) { setError(err.message); }
+};
 
   const upcoming = appts.filter(a => a.date >= new Date().toISOString().slice(0, 10) && ['pending', 'confirmed'].includes(a.status));
 
